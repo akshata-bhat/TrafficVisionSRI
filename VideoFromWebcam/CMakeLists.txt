@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 2.8)
+project( VideoFromWebcam )
+find_package( OpenCV REQUIRED )
+add_executable( VideoFromWebcam VideoFromWebcam.cpp )
+target_link_libraries( VideoFromWebcam ${OpenCV_LIBS} )

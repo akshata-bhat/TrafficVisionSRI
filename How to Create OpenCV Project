@@ -1,0 +1,16 @@
+How to Create a C++ OpenCV project.
+
+In the same directory...
+Create a c++ program -> ProjectName.cpp
+Create a CMake file -> CMakeLists.txt
+cmake_minimum_required(VERSION 2.8)
+project( ProjectName )
+find_package( OpenCV REQUIRED )
+add_executable( ProjectName ProjectName.cpp )
+target_link_libraries( ProjectName ${OpenCV_LIBS} )
+
+>> cmake .
+>> make
+>> ./ProjectName
+
+

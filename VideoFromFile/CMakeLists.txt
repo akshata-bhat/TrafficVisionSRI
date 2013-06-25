@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 2.8)
+project( VideoFromFile )
+find_package( OpenCV REQUIRED )
+add_executable( VideoFromFile VideoFromFile.cpp )
+target_link_libraries( VideoFromFile ${OpenCV_LIBS} )

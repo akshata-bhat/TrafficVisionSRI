@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 2.8)
+project( TrafficVision1 )
+find_package( OpenCV REQUIRED )
+add_executable( TrafficVision1 TrafficVision1.cpp )
+target_link_libraries( TrafficVision1 ${OpenCV_LIBS} )

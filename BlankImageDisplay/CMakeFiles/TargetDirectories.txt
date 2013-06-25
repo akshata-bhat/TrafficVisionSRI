@@ -1,0 +1,1 @@
+/home/trafficvision/Desktop/BlankImageDisplay/CMakeFiles/BlankImageDisplay.dir

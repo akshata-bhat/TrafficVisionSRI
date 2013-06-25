@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 2.8)
+project( BlankImageDisplay )
+find_package( OpenCV REQUIRED )
+add_executable( BlankImageDisplay BlankImageDisplay.cpp )
+target_link_libraries( BlankImageDisplay ${OpenCV_LIBS} )
