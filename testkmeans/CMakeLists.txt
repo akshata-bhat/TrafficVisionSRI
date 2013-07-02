@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 2.8)
+project( testkmeans )
+find_package( OpenCV REQUIRED )
+add_executable( testkmeans testkmeans.cpp )
+target_link_libraries( testkmeans ${OpenCV_LIBS} )

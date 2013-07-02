@@ -9,11 +9,13 @@
 /home/trafficvision/Desktop/testTrafficVision/testTrafficVision.cpp
 stdio.h
 -
+stdlib.h
+-
+math.h
+-
 cv.h
 -
 highgui.h
--
-math.h
 -
 
 /usr/local/include/opencv/cv.h

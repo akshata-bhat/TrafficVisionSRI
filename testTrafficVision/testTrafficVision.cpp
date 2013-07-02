@@ -6,11 +6,22 @@
  * Written by David Stavens (david.stavens@ai.stanford.edu)
  */
 #include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 #include <cv.h>
 #include <highgui.h>
-#include <math.h>
+
+using namespace cv;
+using namespace std;
+
+/* Defines variables that describe number of features to detect. */
+int numFeature = 100;
+int maxTrackbar = 500;
+
+const char* source_window = "TrafficVisionTEST";
 
 static const double pi = 3.14159265358979323846;
+
 
 inline static double square(int a)
 {
@@ -68,8 +79,11 @@ int main(void)
 	/* Create a windows called "Optical Flow" for visualizing the output.
 	 * Have the window automatically change its size to match the output.
 	 */
-	cvNamedWindow("Optical Flow", CV_WINDOW_AUTOSIZE);
+	cvNamedWindow(source_window, CV_WINDOW_AUTOSIZE);
 
+	/* Create a trackbar in window to set the number of features to track. */
+	createTrackbar( "Number of Features:", source_window, &numFeature, maxTrackbar );
+	  
 	long current_frame = 0;
 	while(true)
 	{
@@ -125,14 +139,14 @@ int main(void)
 		allocateOnDemand( &frame2_1C, frame_size, IPL_DEPTH_8U, 1 );
 		cvConvertImage(frame, frame2_1C, CV_CVTIMG_FLIP);
 
-		/* Shi and Tomasi Feature Tracking! */
+		/*------ Shi and Tomasi Feature Tracking! ------*/
 
 		/* Preparation: Allocate the necessary storage. */
 		allocateOnDemand( &eig_image, frame_size, IPL_DEPTH_32F, 1 );
 		allocateOnDemand( &temp_image, frame_size, IPL_DEPTH_32F, 1 );
 
 		/* Preparation: This array will contain the features found in frame 1. */
-		CvPoint2D32f frame1_features[400];
+		CvPoint2D32f frame1_features[numFeature]; //400 original
 
 		/* Preparation: BEFORE the function call this variable is the array size
 		 * (or the maximum number of features to find).  AFTER the function call
@@ -143,7 +157,7 @@ int main(void)
 		/* I'm hardcoding this at 400.  But you should make this a #define so that you can
 		 * change the number of features you use for an accuracy/speed tradeoff analysis.
 		 */
-		number_of_features = 400;
+		number_of_features = numFeature; //400 original
 
 		/* Actually run the Shi and Tomasi algorithm!!
 		 * "frame1_1C" is the input image.
@@ -157,21 +171,21 @@ int main(void)
 		 */
 		cvGoodFeaturesToTrack(frame1_1C, eig_image, temp_image, frame1_features, &number_of_features, .01, .01, NULL);
 
-		/* Pyramidal Lucas Kanade Optical Flow! */
+		/*------ Pyramidal Lucas Kanade Optical Flow! -----*/
 
 		/* This array will contain the locations of the points from frame 1 in frame 2. */
-		CvPoint2D32f frame2_features[400];
+		CvPoint2D32f frame2_features[numFeature];
 
 		/* The i-th element of this array will be non-zero if and only if the i-th feature of
 		 * frame 1 was found in frame 2.
 		 */
-		char optical_flow_found_feature[400];
+		char optical_flow_found_feature[numFeature];
 
 		/* The i-th element of this array is the error in the optical flow for the i-th feature
 		 * of frame1 as found in frame 2.  If the i-th feature was not found (see the array above)
 		 * I think the i-th entry in this array is undefined.
 		 */
-		float optical_flow_feature_error[400];
+		float optical_flow_feature_error[numFeature];
 
 		/* This is the window size to use to avoid the aperture problem (see slide "Optical Flow: Overview"). */
 		CvSize optical_flow_window = cvSize(3,3);
@@ -253,10 +267,55 @@ int main(void)
 			p.y = (int) (q.y + 9 * sin(angle - pi / 4));
 			cvLine( frame1, p, q, line_color, line_thickness, CV_AA, 0 );
 		}
+		
+		
+		/* Proximity Grouping Algorithm (k-means).
+		 * The function kmeans implements a k-means algorithm that finds 
+		 * the centers of clusterCount clusters and groups the input 
+		 * samples around the clusters.
+		 */ 
+		/*
+		double kmeans(const Mat& samples, int clusterCount, Mat& labels, 
+		TermCriteria termcrit, int attempts, int flags, Mat* centers)
+		*/
+		
+		/*--- K-means alogirthm --- (July02)*/
+		/*
+		Scalar colorTab[] = {
+        Scalar(0, 0, 255),
+        Scalar(0,255,0),
+        Scalar(255,100,100),
+        Scalar(255,0,255),
+        Scalar(0,255,255) };
+        */
+		RNG rng(12345);
+		
+		const int MAX_CLUSTERS = 10;
+		int k, clusterCount = MAX_CLUSTERS+1;
+        int i, sampleCount = numFeature;
+        Mat points(sampleCount, 1, CV_32FC2), labels;
+        clusterCount = MIN(clusterCount, sampleCount);
+        Mat centers(clusterCount, 1, points.type());
+        
+        kmeans(points, clusterCount, labels,
+			   TermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 10, 1.0),
+               3, KMEANS_PP_CENTERS, centers);
+        
+        //frame1 = Scalar::all(0);
+        /*
+        for( i = 0; i < sampleCount; i++ )
+        {
+            int clusterIdx = labels.at<int>(i);
+            Point ipt = points.at<Point2f>(i);
+            circle( frame1, ipt, 2, colorTab[clusterIdx], CV_FILLED, CV_AA );
+        }
+        */
+       
 		/* Now display the image we drew on.  Recall that "Optical Flow" is the name of
 		 * the window we created above.
 		 */
-		cvShowImage("Optical Flow", frame1);
+		cvShowImage(source_window, frame1);
+		//cout<<"Center: \n"<<centers<<std::endl;
 		/* And wait for the user to press a key (so the user has time to look at the image).
 		 * If the argument is 0 then it waits forever otherwise it waits that number of milliseconds.
 		 * The return value is the key the user pressed.
