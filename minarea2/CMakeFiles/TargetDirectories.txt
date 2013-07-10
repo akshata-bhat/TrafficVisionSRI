@@ -1,0 +1,1 @@
+/home/trafficvision/Desktop/minarea2/CMakeFiles/minarea2.dir
