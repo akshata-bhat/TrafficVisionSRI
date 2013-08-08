@@ -11,6 +11,8 @@ stdio.h
 -
 stdlib.h
 -
+math.h
+-
 cv.h
 -
 highgui.h
