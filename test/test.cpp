@@ -68,7 +68,7 @@ int main( int argc, char** argv ) {
 	// Create a window ( TEST , autosize the window )
 	cvNamedWindow( source_window, CV_WINDOW_AUTOSIZE );
 	// Load the AVI video from a file into the CvCapture object
-	g_capture = cvCreateFileCapture( "/home/trafficvision/Desktop/object.avi" );
+	g_capture = cvCreateFileCapture( "/home/trafficvision/Desktop/cars.avi" );
 	
 	/* FOR FUTURE USE 
 	 *  Load the AVI videom from the CAMERA to the CvCapture structure
@@ -104,6 +104,8 @@ int main( int argc, char** argv ) {
 		);
 	}
 	
+	long current_frame = 0;
+	
 	// Load frame of video into structure IplImage
 	//IplImage* frame;
 	
@@ -119,6 +121,13 @@ int main( int argc, char** argv ) {
 						*pyramid1 = NULL,
 						*pyramid2 = NULL;
 		
+	    /* Go to the frame we want.  Important if multiple frames are queried in
+		 * the loop which they of course are for optical flow.  Note that the very
+		 * first call to this is actually not needed. (Because the correct position
+		 * is set outsite the for() loop.)
+		 */
+		cvSetCaptureProperty( g_capture, CV_CAP_PROP_POS_FRAMES, current_frame );
+
 	    // Get the first(next) frame of the video.
 		// IMPORTANT!  cvQueryFrame() always returns a pointer to the _same_
 		// memory location.  So successive calls:
@@ -140,11 +149,11 @@ int main( int argc, char** argv ) {
 		 * AND flip the image vertically.  Flip is a shameless hack.  OpenCV reads
 		 * in AVIs upside-down by default.  (No comment :-))
 		 */
-		//cvConvertImage(frame, frame1_1C, CV_CVTIMG_FLIP);
+		cvConvertImage(frame, frame1_1C, CV_CVTIMG_FLIP);
 		// We'll make a full color backup of this frame so that we can draw on it.
 		// (It's not the best idea to draw on the static memory space of cvQueryFrame().)
 		allocateOnDemand( &frame1, frame_size, IPL_DEPTH_8U, 3 );
-		//cvConvertImage(frame, frame1, CV_CVTIMG_FLIP);
+		cvConvertImage(frame, frame1, CV_CVTIMG_FLIP);
 		// Get the second frame of video.  Same principles as the first.
 		frame = cvQueryFrame( g_capture );
 		if (frame == NULL)
@@ -153,7 +162,7 @@ int main( int argc, char** argv ) {
 			return -1;
 		}
 		allocateOnDemand( &frame2_1C, frame_size, IPL_DEPTH_8U, 1 );
-		//cvConvertImage(frame, frame2_1C, CV_CVTIMG_FLIP);
+		cvConvertImage(frame, frame2_1C, CV_CVTIMG_FLIP);
 		
 		
 		/// Implement Shi/Tomasi Good Feature Algorithm
@@ -238,11 +247,65 @@ int main( int argc, char** argv ) {
 			optical_flow_feature_error, 
 			optical_flow_termination_criteria, 
 			0 );
+			
+		/// For fun (and debugging), let's draw the flow field. 
+		for(int i = 0; i < number_of_features; i++)
+		{
+			/* If Pyramidal Lucas Kanade didn't really find the feature, skip it. */
+			if ( optical_flow_found_feature[i] == 0 )	continue;
+
+			int line_thickness;				line_thickness = 1;
+			/* CV_RGB(red, green, blue) is the red, green, and blue components
+			 * of the color you want, each out of 255.
+			 */	
+			CvScalar line_color;			line_color = CV_RGB(255,0,0);
 	
+			/* Let's make the flow field look nice with arrows. */
+
+			/* The arrows will be a bit too short for a nice visualization because of the high framerate
+			 * (ie: there's not much motion between the frames).  So let's lengthen them by a factor of 3.
+			 */
+			CvPoint p,q;
+			p.x = (int) frame1_features[i].x;
+			p.y = (int) frame1_features[i].y;
+			q.x = (int) frame2_features[i].x;
+			q.y = (int) frame2_features[i].y;
+
+			double angle;		angle = atan2( (double) p.y - q.y, (double) p.x - q.x );
+			double hypotenuse;	hypotenuse = sqrt( square(p.y - q.y) + square(p.x - q.x) );
+
+			/* Here we lengthen the arrow by a factor of three. */
+			q.x = (int) (p.x - 3 * hypotenuse * cos(angle));
+			q.y = (int) (p.y - 3 * hypotenuse * sin(angle));
+
+			/* Now we draw the main line of the arrow. */
+			/* "frame1" is the frame to draw on.
+			 * "p" is the point where the line begins.
+			 * "q" is the point where the line stops.
+			 * "CV_AA" means antialiased drawing.
+			 * "0" means no fractional bits in the center cooridinate or radius.
+			 */
+			cvLine( frame1, p, q, line_color, line_thickness, CV_AA, 0 );
+			/* Now draw the tips of the arrow.  I do some scaling so that the
+			 * tips look proportional to the main line of the arrow.
+			 */			
+			p.x = (int) (q.x + 9 * cos(angle + pi / 4));
+			p.y = (int) (q.y + 9 * sin(angle + pi / 4));
+			cvLine( frame1, p, q, line_color, line_thickness, CV_AA, 0 );
+			p.x = (int) (q.x + 9 * cos(angle - pi / 4));
+			p.y = (int) (q.y + 9 * sin(angle - pi / 4));
+			cvLine( frame1, p, q, line_color, line_thickness, CV_AA, 0 );
+		}
 
 		
 		// Display the frame into the window
-		cvShowImage( source_window, frame );
+		cvShowImage( source_window, frame1 );
+		
+		current_frame++; // Run the video (fps)
+		// Loop the AVI video. 
+		if (current_frame < 0)						current_frame = 0;
+		if (current_frame >= frames - 1)	current_frame = 0;
+	
 		// If the user presses ESC, exit the program.
 		char c = cvWaitKey(33);
 		if( c == 27 ) break;
