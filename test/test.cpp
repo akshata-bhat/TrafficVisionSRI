@@ -27,9 +27,14 @@ const char* source_window = "TEST"; // Name of the GUI Window
 
 /// Globals
 RNG rng(12345);
-int g_slider_position 	= 0;
 CvCapture* g_capture	= NULL; // CvCapture structure object
 static const double pi = 3.14159265358979323846;
+const int number_of_features_max = 500; //number of features to detect in lucas kanade
+const int MAX_CLUSTERS = 10;
+int number_of_features = 100; //number of features to detect in lucas kanade
+int g_slider_position 	= 0;
+
+
 
 inline static double square(int a)
 {
@@ -51,24 +56,27 @@ inline static void allocateOnDemand( IplImage **img, CvSize size, int depth, int
 		exit(-1);
 	}
 }
-
+/*
 /// Trackbar callback routine
 void onTrackbarSlide(int pos) {
 	// Allow the user to configure various properties of CvCapture object
 	cvSetCaptureProperty(
 		g_capture, // CvCapture object
-		CV_CAP_PROP_POS_FRAMES, // Argument which inidicate the read position in units of frames
+		//CV_CAP_PROP_POS_FRAMES, // Argument which inidicate the read position in units of frames
 		pos
 	); 
 }
-
+*/
+void onTrackbarSlide(int pos) {
+	// it just works.
+}
 /// Main Program 
 int main( int argc, char** argv ) {
 	
 	// Create a window ( TEST , autosize the window )
 	cvNamedWindow( source_window, CV_WINDOW_AUTOSIZE );
 	// Load the AVI video from a file into the CvCapture object
-	g_capture = cvCreateFileCapture( "/home/trafficvision/Desktop/cars.avi" );
+	g_capture = cvCreateFileCapture( "/home/trafficvision/Desktop/tp.avi" );
 	
 	/* FOR FUTURE USE 
 	 *  Load the AVI videom from the CAMERA to the CvCapture structure
@@ -89,11 +97,10 @@ int main( int argc, char** argv ) {
 	
 	// Use the GetCaptureProperty to query the CvCapture object for data (# of frames).
 	// Store into frames.
-	int frames = (int) cvGetCaptureProperty(
-		g_capture,
-		CV_CAP_PROP_FRAME_COUNT // Find out how many frames are in AVI
-	);
-	// Create the trackbar
+	int frames = (int) cvGetCaptureProperty( g_capture, CV_CAP_PROP_FRAME_COUNT ); // Find out how many frames are in AVI
+	
+/*	Trackbar that scrolls the position of the video (removed)
+    // Create the trackbar
 	if( frames != 0 ) {
 		cvCreateTrackbar( 
 			"Position", // Trackbar label
@@ -103,7 +110,17 @@ int main( int argc, char** argv ) {
 			onTrackbarSlide // Make a sliding trackbar
 		);
 	}
-	
+*/	
+    // Create the trackbar
+	if( frames != 0 ) {
+		cvCreateTrackbar( 
+			"Number of Features", // Trackbar label
+			source_window , // Specify window for trackbar
+			&number_of_features, // Adjust the value of g_slider_position	
+			number_of_features_max,		
+			onTrackbarSlide // Make a sliding trackbar
+		);
+	}
 	long current_frame = 0;
 	
 	// Load frame of video into structure IplImage
@@ -170,14 +187,14 @@ int main( int argc, char** argv ) {
 		allocateOnDemand( &eigImage, frame_size, IPL_DEPTH_32F, 1 );
 		allocateOnDemand( &tempImage, frame_size, IPL_DEPTH_32F, 1 );
 		// Preparation: This array will contain the features found in frame 1. 
-		CvPoint2D32f frame1_features[100];
+		CvPoint2D32f frame1_features[number_of_features];
 		// Preparation: BEFORE the function call this variable is the array size
 		// (or the maximum number of features to find).  AFTER the function call
 		// this variable is the number of features actually found.
-		int number_of_features;
+		//int number_of_features;
 		// I'm hardcoding this at 400.  But you should make this a #define so that you can
 		// change the number of features you use for an accuracy/speed tradeoff analysis.
-		number_of_features = 100;
+		//number_of_features = 100;
 		/*---Actually run the Shi and Tomasi algorithm!!---*/
 		/* "frame1_1C" is the input image.
 		 * "eigImage" and "tempImage" are just workspace for the algorithm.
@@ -200,14 +217,14 @@ int main( int argc, char** argv ) {
 		
 		/// Pyramidal Lucas Kanade Optical Flow!
 		// This array will contain the locations of the points from frame 1 in frame 2. 
-		CvPoint2D32f frame2_features[100];
+		CvPoint2D32f frame2_features[number_of_features];
 		// The i-th element of this array will be non-zero if and only if the i-th feature of
 		// frame 1 was found in frame 2.
-		char optical_flow_found_feature[100];
+		char optical_flow_found_feature[number_of_features];
 		// The i-th element of this array is the error in the optical flow for the i-th feature
 		// of frame1 as found in frame 2.  If the i-th feature was not found (see the array above)
 		// I think the i-th entry in this array is undefined.
-		float optical_flow_feature_error[100];
+		float optical_flow_feature_error[number_of_features];
 		// This is the window size to use to avoid the aperture problem (see slide "Optical Flow: Overview").
 		CvSize optical_flow_window = cvSize(3,3);
 		// This termination criteria tells the algorithm to stop when it has either done 20 iterations or when
@@ -248,6 +265,21 @@ int main( int argc, char** argv ) {
 			optical_flow_termination_criteria, 
 			0 );
 			
+		/*
+		/// Implement the k-means algorithm for clustering
+		for(int k = 0; k < number_of_features; k++){
+			if ( optical_flow_found_feature[k] == 0 )	continue;
+			
+			int clusterCount = rng.uniform(2, MAX_CLUSTERS+1);
+			Mat pts(number_of_features, 1, CV_32FC2);
+			Mat labels;
+			clusterCount = MIN(clusterCount, number_of_features);
+			Mat centers(clusterCount, 1, pts.type());
+			
+			pts = frame2_features[k];
+			
+		}
+		*/
 		/// For fun (and debugging), let's draw the flow field. 
 		for(int i = 0; i < number_of_features; i++)
 		{
@@ -295,20 +327,43 @@ int main( int argc, char** argv ) {
 			p.x = (int) (q.x + 9 * cos(angle - pi / 4));
 			p.y = (int) (q.y + 9 * sin(angle - pi / 4));
 			cvLine( frame1, p, q, line_color, line_thickness, CV_AA, 0 );
+		
+
+	
 		}
 
-		
+		cvFlip(frame1, 0); // Quick fix to display the video proper
 		// Display the frame into the window
 		cvShowImage( source_window, frame1 );
-		
+		/*
+		 * 
 		current_frame++; // Run the video (fps)
 		// Loop the AVI video. 
 		if (current_frame < 0)						current_frame = 0;
-		if (current_frame >= frames - 1)	current_frame = 0;
+		if (current_frame >= frames - 1)			current_frame = 0;
 	
 		// If the user presses ESC, exit the program.
 		char c = cvWaitKey(33);
 		if( c == 27 ) break;
+		* 
+		*/
+
+		/* And wait for the user to press a key (so the user has time to look at the image).
+		 * If the argument is 0 then it waits forever otherwise it waits that number of milliseconds.
+		 * The return value is the key the user pressed.
+		 */
+		int key_pressed;
+		key_pressed = cvWaitKey(0);
+
+		/* If the users pushes "b" or "B" go back one frame.
+		 * Otherwise go forward one frame.
+		 */
+		if (key_pressed == 'b' || key_pressed == 'B')	current_frame--;
+		else											current_frame++;
+		/* Don't run past the front/end of the AVI. */
+		if (current_frame < 0)						current_frame = 0;
+		if (current_frame >= frames - 1)	current_frame = frames - 2;
+		
 	}
 	// Release memory allocated objects & kill window
 	cvReleaseCapture( &g_capture );
